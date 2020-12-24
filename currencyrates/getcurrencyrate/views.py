@@ -1,13 +1,12 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Rate
 from .serializers import RateSerializer
-from django.http import HttpResponse
 import requests
 import ast
-import json
-from datetime import datetime
+from datetime import datetime, date as dt
+from rest_framework import status
+
 
 
 class RateView(APIView):
@@ -28,13 +27,31 @@ class RateView(APIView):
         print("saved to database")
         return new_rate
 
+    def is_invalid_date(self, date):
+        try:
+            if datetime.strptime(date, '%Y-%m-%d') > datetime.today():
+                return True
+            else:
+                return False
+        except ValueError:
+            return True
+
     def get(self, request):
-        date = request.data["date"]
-        source = request.data["from"]
-        destination = request.data["to"]
-        rate = Rate.objects.filter(source_currency=source, destination_currency=destination, date=date).first()
-        if rate == None:   
-            rate_request = self.get_rate(date, source, destination)
-            rate = self.save_rate(rate_request)
-        serializer = RateSerializer(rate)
-        return Response(serializer.data)
+        try:
+            date = request.data["date"]
+            source = request.data["from"].upper()
+            destination = request.data["to"].upper()
+            if self.is_invalid_date(date):
+                return Response({"message":"Invalid date"}, status=status.HTTP_400_BAD_REQUEST)
+            rate = Rate.objects.filter(source_currency=source, destination_currency=destination, date=date).first()
+            if rate == None:
+                rate_request = self.get_rate(date, source, destination)
+                rate = self.save_rate(rate_request)
+            serializer = RateSerializer(rate)
+            return Response(serializer.data)
+        except KeyError as e:
+            return Response({"message":str(e)+" field is missing"}, status=status.HTTP_400_BAD_REQUEST)
+        except (SyntaxError):
+            return Response({"message":"Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({"message":"Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
