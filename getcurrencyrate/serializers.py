@@ -5,4 +5,4 @@ from rest_framework import serializers
 class RateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rate
-        fields = '__all__'
+        fields = ['source_currency', 'destination_currency', 'date', 'rate']

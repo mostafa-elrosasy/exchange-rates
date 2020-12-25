@@ -20,5 +20,6 @@ from getcurrencyrate import urls as rate_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # uses the urls.py in the getcurrencyrate app
     path('rate/',include(rate_urls))
 ]

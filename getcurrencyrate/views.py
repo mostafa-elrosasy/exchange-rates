@@ -7,15 +7,16 @@ import ast
 from datetime import datetime, date as dt
 from rest_framework import status
 
-
-
 class RateView(APIView):
-
+    # constructs the url used to get the exchange rate from frankfurter
+    # and returns the response body
     def get_rate(self, date, source, destination):
         url = "https://api.frankfurter.app/{}?from={}&to={}".format(date, source, destination)
         rate = requests.get(url)
-        return(rate.content)
+        return rate.content
 
+    # constructs a new rate object from frankfurter response body, 
+    # saves the object in the database, and returns the object 
     def save_rate(self, rate_object):
         rate_object = ast.literal_eval(rate_object.decode("UTF-8"))
         date = rate_object["date"]
@@ -24,9 +25,10 @@ class RateView(APIView):
         rate = rate_object["rates"][destination]
         new_rate = Rate(source_currency = source, destination_currency = destination, date = date, rate = rate)
         new_rate.save()
-        print("saved to database")
         return new_rate
 
+    # if the date is in the future or the date format is not yyyy-mm-dd (invalid date)
+    # the function returns true
     def is_invalid_date(self, date):
         try:
             if datetime.strptime(date, '%Y-%m-%d') > datetime.today():
@@ -36,22 +38,27 @@ class RateView(APIView):
         except ValueError:
             return True
 
+    # serves the get request
     def get(self, request):
         try:
             date = request.data["date"]
+            # used upper to accept currencies in different letter cases (USD and usd are treated the same)
             source = request.data["from"].upper()
             destination = request.data["to"].upper()
             if self.is_invalid_date(date):
                 return Response({"message":"Invalid date"}, status=status.HTTP_400_BAD_REQUEST)
             rate = Rate.objects.filter(source_currency=source, destination_currency=destination, date=date).first()
+            # if the requested rate isn't in the database, it's got from frankfurter and saved in the database
             if rate == None:
                 rate_request = self.get_rate(date, source, destination)
                 rate = self.save_rate(rate_request)
             serializer = RateSerializer(rate)
             return Response(serializer.data)
+        # when a field in missing, a KeyError is raised
         except KeyError as e:
             return Response({"message":str(e)+" field is missing"}, status=status.HTTP_400_BAD_REQUEST)
-        except (SyntaxError):
+        # when currency field has wrong data (like USDD) a syntax error is raised
+        except SyntaxError:
             return Response({"message":"Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
         except:
             return Response({"message":"Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
