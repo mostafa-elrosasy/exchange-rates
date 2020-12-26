@@ -67,6 +67,6 @@ class RateView(APIView):
         # when currency field has wrong data (like USDD) a syntax error is raised
         except SyntaxError:
             return Response({"message":"Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
-        # except:
-        #     return Response({"message":"Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except:
+            return Response({"message":"Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
