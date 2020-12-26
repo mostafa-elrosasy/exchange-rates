@@ -23,8 +23,12 @@ class RateView(APIView):
         source = rate_object["base"]
         destination = [*rate_object["rates"]][0]
         rate = rate_object["rates"][destination]
-        new_rate = Rate(source_currency = source, destination_currency = destination, date = date, rate = rate)
-        new_rate.save()
+        # for some dates frankfurter returns other dates (for 2009-01-25 the date of the returned rate is 2009-01-23)
+        # so this line checks if the returned rate is already in the database to prevent duplicates
+        new_rate = Rate.objects.filter(source_currency=source, destination_currency=destination, date=date).first()
+        if new_rate == None:
+            new_rate = Rate(source_currency = source, destination_currency = destination, date = date, rate = rate)
+            new_rate.save()
         return new_rate
 
     # if the date is in the future or the date format is not yyyy-mm-dd (invalid date)
@@ -57,9 +61,12 @@ class RateView(APIView):
         # when a field in missing, a KeyError is raised
         except KeyError as e:
             return Response({"message":str(e)+" field is missing"}, status=status.HTTP_400_BAD_REQUEST)
+        # raised with wrong date format (2015-3-29 instead of 2015-03-29) 
+        except ValueError:
+            return Response({"message":"make sure the date format is yyyy-mm-dd"}, status=status.HTTP_400_BAD_REQUEST)
         # when currency field has wrong data (like USDD) a syntax error is raised
         except SyntaxError:
             return Response({"message":"Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
-        except:
-            return Response({"message":"Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # except:
+        #     return Response({"message":"Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
